@@ -4,63 +4,61 @@
 <meta charset="UTF-8">
 <title>Inventory Login</title>
 <style>
-body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;display:flex;align-items:center;justify-content:center;height:100vh;}
-.card {background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);width:350px;}
-h2 {text-align:center;margin-bottom:20px;}
-input {width:100%;padding:10px;margin:8px 0;border:1px solid #d1d5db;border-radius:4px;}
-button {width:100%;padding:10px;background:#0b5cab;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-top:10px;}
+body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;display:flex;justify-content:center;align-items:center;height:100vh;}
+.card {background:#fff;padding:40px;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,.1);width:320px;}
+input {width:100%;padding:10px;margin:10px 0;border:1px solid #d1d5db;border-radius:4px;}
+button {background:#0b5cab;color:#fff;border:none;padding:10px;width:100%;border-radius:4px;cursor:pointer;}
 button.secondary {background:#6b7280;}
-p {text-align:center;margin-top:10px;color:#b91c1c;}
 </style>
 </head>
 <body>
-
 <div class="card">
-  <h2>Login to Inventory</h2>
+  <h2>Inventory Login</h2>
   <input id="email" type="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
-  <p id="message"></p>
+  <p id="error" style="color:red"></p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-// Replace these with your Supabase project info
-const supabaseUrl = "https://mqzawrkklhxspurkddhy.supabase.co";
-const supabaseKey = "process.env.SUPABASE_KEY"; // anon key
-const supabase = supabaseJs.createClient(supabaseUrl, supabaseKey);
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-const msg = document.getElementById("message");
+const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'
+const supabaseKey = 'process.env.SUPABASE_KEY' // replace with your anon key
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 async function login() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+  const email = document.getElementById('email').value
+  const password = document.getElementById('password').value
+  const errorEl = document.getElementById('error')
 
-  if (!email || !password) {
-    msg.textContent = "Please enter email and password";
-    return;
-  }
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email, password
-  });
-
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) {
-    msg.textContent = error.message;
-    return;
+    errorEl.textContent = error.message
+    return
   }
 
-  msg.textContent = "Login successful! Redirecting...";
+  // fetch user profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', data.user.id)
+    .single()
 
-  // Store user info in sessionStorage for dashboard
-  sessionStorage.setItem("user_email", data.user.email);
+  if (profileError) {
+    errorEl.textContent = profileError.message
+    return
+  }
 
-  // Redirect to your dashboard (index.html)
-  setTimeout(() => {
-    window.location.href = "index.html";
-  }, 1000);
+  // store session
+  sessionStorage.setItem('supabase_user', JSON.stringify({
+    id: data.user.id,
+    email: profile.email,
+    role: profile.role
+  }))
+
+  window.location.href = 'index.html'
 }
 </script>
-
 </body>
 </html>
