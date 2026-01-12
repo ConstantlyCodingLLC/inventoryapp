@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>STASH IT</title>
+<title>StashIT Login</title>
 <style>
 body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;display:flex;justify-content:center;align-items:center;height:100vh;}
 .card {background:#fff;padding:40px;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,.1);width:320px;}
 input {width:100%;padding:10px;margin:10px 0;border:1px solid #d1d5db;border-radius:4px;}
-button {background:#0b5cab;color:#fff;border:none;padding:10px;width:100%;border-radius:4px;cursor:pointer;}
+button {background:#0b5cab;color:#fff;border:none;padding:10px;width:100%;border-radius:4px;cursor:pointer;margin-top:5px;}
 button.secondary {background:#6b7280;}
+button.contact {background:#10b981;} /* green for contact */
+p.link {text-align:center;margin-top:10px;}
 </style>
 </head>
 <body>
@@ -17,6 +19,8 @@ button.secondary {background:#6b7280;}
   <input id="email" type="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
+  <button class="secondary" onclick="signup()">Sign Up</button>
+  <button class="contact" onclick="contact()">Contact</button>
   <p id="error" style="color:red"></p>
 </div>
 
@@ -33,10 +37,7 @@ async function login() {
   const errorEl = document.getElementById('error')
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) {
-    errorEl.textContent = error.message
-    return
-  }
+  if (error) { errorEl.textContent = error.message; return }
 
   // fetch user profile
   const { data: profile, error: profileError } = await supabase
@@ -45,12 +46,8 @@ async function login() {
     .eq('user_id', data.user.id)
     .single()
 
-  if (profileError) {
-    errorEl.textContent = profileError.message
-    return
-  }
+  if (profileError) { errorEl.textContent = profileError.message; return }
 
-  // store session
   sessionStorage.setItem('supabase_user', JSON.stringify({
     id: data.user.id,
     email: profile.email,
@@ -58,6 +55,37 @@ async function login() {
   }))
 
   window.location.href = 'index.html'
+}
+
+// =============================
+// SIGN UP FUNCTION
+// =============================
+async function signup() {
+  const email = document.getElementById('email').value
+  const password = document.getElementById('password').value
+  const errorEl = document.getElementById('error')
+
+  if (!email || !password) { errorEl.textContent = 'Enter email and password'; return }
+
+  // create Supabase user
+  const { data, error } = await supabase.auth.signUp({ email, password })
+  if (error) { errorEl.textContent = error.message; return }
+
+  // create profile in user_profiles
+  await supabase.from('user_profiles').insert([{
+    user_id: data.user.id,
+    email: data.user.email,
+    role: 'user' // new users default to 'user'
+  }])
+
+  alert('Sign Up Successful! Please log in.')
+}
+
+// =============================
+// CONTACT BUTTON
+// =============================
+function contact() {
+  window.location.href = 'mailto:constantlycodingllc@gmail.com'
 }
 </script>
 </body>
