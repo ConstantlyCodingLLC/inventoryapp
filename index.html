@@ -5,7 +5,6 @@
 <title>Inventory Management</title>
 
 <style>
-/* ===== ServiceNow-like UI ===== */
 body {
   margin: 0;
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
@@ -96,10 +95,6 @@ th {
   font-weight: 600;
 }
 
-.value {
-  font-weight: bold;
-}
-
 .modal {
   position: fixed;
   inset: 0;
@@ -116,7 +111,7 @@ th {
   border-radius: 6px;
 }
 
-input {
+input, select {
   width: 100%;
   padding: 8px;
   margin: 6px 0;
@@ -128,9 +123,7 @@ input {
 
 <body>
 
-<div class="header">
-  Inventory Management
-</div>
+<div class="header">Inventory Management</div>
 
 <div class="container">
 
@@ -140,17 +133,47 @@ input {
     <a href="#" onclick="showReports()">Reports</a>
   </div>
 
-  <div class="main">
-    <div class="card">
-      <h2>Inventory Items</h2>
-      <button onclick="openModal()">➕ New Product</button>
+  <div class="main" id="content"></div>
 
+</div>
+
+<!-- CREATE ITEM MODAL -->
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h3>Create Item</h3>
+    <input id="name" placeholder="Item Name">
+    <input id="sku" placeholder="SKU">
+    <input id="cost" type="number" placeholder="Cost Per Unit">
+    <input id="qty" type="number" placeholder="Quantity">
+    <button onclick="addProduct()">Create</button>
+    <button class="secondary" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<script>
+let inventory = JSON.parse(localStorage.getItem("inventory")) || [];
+let auditLog = JSON.parse(localStorage.getItem("auditLog")) || [];
+
+function logAudit(action, details) {
+  auditLog.push({
+    time: new Date().toLocaleString(),
+    action,
+    details
+  });
+  localStorage.setItem("auditLog", JSON.stringify(auditLog));
+}
+
+function showInventory() {
+  document.getElementById("content").innerHTML = `
+    <div class="card">
+      <h2>Products Dashboard</h2>
+      <button onclick="openModal()">➕ Create Item</button>
       <table>
         <thead>
           <tr>
             <th>Name</th>
             <th>SKU</th>
-            <th>Qty</th>
+            <th>Quantity</th>
             <th>Cost</th>
             <th>Total Value</th>
             <th>Actions</th>
@@ -159,27 +182,11 @@ input {
         <tbody id="inventoryTable"></tbody>
       </table>
     </div>
-  </div>
+  `;
+  renderInventory();
+}
 
-</div>
-
-<!-- MODAL -->
-<div class="modal" id="modal">
-  <div class="modal-content">
-    <h3>Add Product</h3>
-    <input id="name" placeholder="Product Name">
-    <input id="sku" placeholder="SKU">
-    <input id="cost" type="number" placeholder="Cost Per Unit">
-    <input id="qty" type="number" placeholder="Quantity">
-    <button onclick="addProduct()">Save</button>
-    <button class="secondary" onclick="closeModal()">Cancel</button>
-  </div>
-</div>
-
-<script>
-let inventory = JSON.parse(localStorage.getItem("inventory")) || [];
-
-function render() {
+function renderInventory() {
   const table = document.getElementById("inventoryTable");
   table.innerHTML = "";
 
@@ -190,7 +197,7 @@ function render() {
         <td>${p.sku}</td>
         <td>${p.qty}</td>
         <td>$${p.cost.toFixed(2)}</td>
-        <td class="value">$${(p.qty * p.cost).toFixed(2)}</td>
+        <td>$${(p.qty * p.cost).toFixed(2)}</td>
         <td>
           <button onclick="stockIn(${i})">IN</button>
           <button class="secondary" onclick="stockOut(${i})">OUT</button>
@@ -200,6 +207,47 @@ function render() {
   });
 
   localStorage.setItem("inventory", JSON.stringify(inventory));
+}
+
+function showReports() {
+  document.getElementById("content").innerHTML = `
+    <div class="card">
+      <h2>Audit & Reports</h2>
+
+      <label>Report Type</label>
+      <select id="reportType" onchange="runReport()">
+        <option value="">Select</option>
+        <option value="value">Inventory Value</option>
+        <option value="low">Low Stock</option>
+        <option value="audit">Audit Log</option>
+      </select>
+
+      <div id="reportResults" style="margin-top:15px;"></div>
+    </div>
+  `;
+}
+
+function runReport() {
+  const type = document.getElementById("reportType").value;
+  const out = document.getElementById("reportResults");
+
+  if (type === "value") {
+    const total = inventory.reduce((s,p)=>s+(p.qty*p.cost),0);
+    out.innerHTML = `<strong>Total Inventory Value:</strong> $${total.toFixed(2)}`;
+  }
+
+  if (type === "low") {
+    out.innerHTML = inventory
+      .filter(p=>p.qty<5)
+      .map(p=>`${p.name} (${p.qty})`)
+      .join("<br>") || "No low stock items";
+  }
+
+  if (type === "audit") {
+    out.innerHTML = auditLog.map(a =>
+      `<div>${a.time} — ${a.action}: ${a.details}</div>`
+    ).join("");
+  }
 }
 
 function openModal() {
@@ -217,36 +265,32 @@ function addProduct() {
     cost: parseFloat(cost.value),
     qty: parseInt(qty.value)
   });
+  logAudit("CREATE ITEM", name.value);
   closeModal();
-  render();
+  showInventory();
 }
 
 function stockIn(i) {
-  const qty = parseInt(prompt("Add quantity"));
-  const cost = parseFloat(prompt("Unit cost"));
+  const q = parseInt(prompt("Quantity IN"));
+  const c = parseFloat(prompt("Unit Cost"));
   inventory[i].cost =
-    ((inventory[i].cost * inventory[i].qty) + (cost * qty)) /
-    (inventory[i].qty + qty);
-  inventory[i].qty += qty;
-  render();
+    ((inventory[i].cost * inventory[i].qty) + (c * q)) /
+    (inventory[i].qty + q);
+  inventory[i].qty += q;
+  logAudit("STOCK IN", inventory[i].name + " +" + q);
+  renderInventory();
 }
 
 function stockOut(i) {
-  const qty = parseInt(prompt("Remove quantity"));
-  if (qty <= inventory[i].qty) {
-    inventory[i].qty -= qty;
-    render();
-  } else {
-    alert("Not enough stock");
-  }
+  const q = parseInt(prompt("Quantity OUT"));
+  if (q <= inventory[i].qty) {
+    inventory[i].qty -= q;
+    logAudit("STOCK OUT", inventory[i].name + " -" + q);
+    renderInventory();
+  } else alert("Insufficient stock");
 }
 
-function showInventory() {}
-function showReports() {
-  alert("Reports coming next");
-}
-
-render();
+showInventory();
 </script>
 
 </body>
