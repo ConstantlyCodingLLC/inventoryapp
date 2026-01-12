@@ -10,7 +10,7 @@ h2 {text-align:center;margin-bottom:20px;}
 input {width:100%;padding:10px;margin:8px 0;border:1px solid #d1d5db;border-radius:4px;}
 button {width:100%;padding:10px;background:#0b5cab;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-top:10px;}
 button.secondary {background:#6b7280;}
-p {text-align:center;margin-top:10px;}
+p {text-align:center;margin-top:10px;color:#b91c1c;}
 </style>
 </head>
 <body>
@@ -20,72 +20,45 @@ p {text-align:center;margin-top:10px;}
   <input id="email" type="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
-  <button class="secondary" onclick="signUp()">Sign Up</button>
   <p id="message"></p>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// Replace these with your Supabase project info
+const supabaseUrl = "https://mqzawrkklhxspurkddhy.supabase.co";
+const supabaseKey = "process.env.SUPABASE_KEY"; // anon key
+const supabase = supabaseJs.createClient(supabaseUrl, supabaseKey);
 
-  
-  const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'
-const supabaseKey = process.env.SUPABASE_KEY
-  const supabase = supabaseJs.createClient(supabaseUrl, supabaseKey);
-
-// Show messages
 const msg = document.getElementById("message");
 
-// LOGIN
 async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (!email || !password) {
+    msg.textContent = "Please enter email and password";
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email, password
+  });
+
   if (error) {
     msg.textContent = error.message;
     return;
   }
 
-  msg.textContent = "Logged in successfully! Redirecting...";
-  const user = await getCurrentUser();
-  console.log("Current User:", user);
+  msg.textContent = "Login successful! Redirecting...";
 
-  // Redirect to inventory dashboard
+  // Store user info in sessionStorage for dashboard
+  sessionStorage.setItem("user_email", data.user.email);
+
+  // Redirect to your dashboard (index.html)
   setTimeout(() => {
-    window.location.href = "/index.html"; // change to your dashboard page
+    window.location.href = "index.html";
   }, 1000);
-}
-
-// SIGN UP (for testing)
-async function signUp() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) {
-    msg.textContent = error.message;
-    return;
-  }
-
-  msg.textContent = "Account created! Please check your email to confirm.";
-}
-
-// GET CURRENT USER + ROLE
-async function getCurrentUser() {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return null;
-
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("role,email")
-    .eq("user_id", data.user.id)
-    .single();
-
-  return {
-    id: data.user.id,
-    email: profile.email,
-    role: profile.role
-  };
 }
 </script>
 
