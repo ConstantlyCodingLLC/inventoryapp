@@ -74,7 +74,7 @@ function showInventory() {
         ${inventory.map((i,n)=>`
           <tr onclick="openRecord(${n})">
             <td>${i.name}</td>
-            <td>${i.sku}</td>
+            <td>${i.model}</td>
             <td>${i.qty}</td>
             <td>$${i.cost}</td>
             <td>$${(i.qty*i.cost).toFixed(2)}</td>
@@ -93,7 +93,7 @@ function openRecord(index) {
     <div class="card">
       <h2>${p.name} (Asset Record)</h2>
 
-      <p><b>SKU:</b> ${p.sku}</p>
+      <p><b>model:</b> ${p.model}</p>
       <p><b>Quantity:</b> ${p.qty}</p>
       <p><b>Cost:</b> $${p.cost}</p>
       <p><b>Total Value:</b> $${(p.qty*p.cost).toFixed(2)}</p>
@@ -138,7 +138,7 @@ function showReports() {
 
 function exportCSV(type) {
   let rows = type === "inventory"
-    ? [["Name","SKU","Qty","Cost"], ...inventory.map(i=>[i.name,i.sku,i.qty,i.cost])]
+    ? [["Name","model","Qty","Cost"], ...inventory.map(i=>[i.name,i.sku,i.qty,i.cost])]
     : [["Time","Action","Item"], ...audit.map(a=>[a.time,a.action,a.item])];
 
   let csv = rows.map(r=>r.join(",")).join("\n");
