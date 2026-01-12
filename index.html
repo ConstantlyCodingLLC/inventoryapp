@@ -46,6 +46,7 @@ input,select {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;borde
     <input id="qty" type="number" placeholder="Quantity">
     <button onclick="addItem()">Create</button>
     <button class="secondary" onclick="closeModal()">Cancel</button>
+    <button class="danger" onclick="deleteItem(0)">Delete</button>
   </div>
 </div>
 
@@ -78,6 +79,33 @@ function showInventory(){
   </div>`;
 }
 
+function deleteItem(index) {
+  const itemName = inventory[index].name;
+
+  // Confirmation prompt (audit-safe)
+  if (!confirm(`Are you sure you want to delete "${itemName}"? This action will be logged.`)) {
+    return;
+  }
+
+  // Remove item from inventory
+  inventory.splice(index, 1);
+
+  // Log deletion for audit tracking
+  audit.push({
+    time: new Date().toLocaleString(),
+    action: "DELETE ITEM",
+    item: itemName
+  });
+
+  // Persist changes
+  localStorage.inventory = JSON.stringify(inventory);
+  localStorage.audit = JSON.stringify(audit);
+
+  // Refresh dashboard
+  showInventory();
+}
+
+  
 function openRecord(i){
   const p = inventory[i];
   content.innerHTML = `
