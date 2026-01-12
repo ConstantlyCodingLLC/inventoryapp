@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>STASH IT</title>
+<title>Asset Tracking</title>
 
 <style>
 body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;}
@@ -15,6 +15,7 @@ body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;}
 .card {background:#fff;padding:20px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.1);}
 button {background:#0b5cab;color:#fff;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;}
 button.secondary {background:#6b7280;}
+button.danger {background:#b91c1c;}
 table {width:100%;border-collapse:collapse;margin-top:15px;}
 th,td {padding:10px;border-bottom:1px solid #e5e7eb;}
 th {background:#f9fafb;}
@@ -26,7 +27,7 @@ input,select {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;borde
 
 <body>
 
-<div class="header">Asset Management</div>
+<div class="header">Asset Tracking</div>
 
 <div class="container">
   <div class="sidebar">
@@ -54,7 +55,11 @@ let inventory = JSON.parse(localStorage.inventory||"[]");
 let audit = JSON.parse(localStorage.audit||"[]");
 
 function log(action,item){
-  audit.push({time:new Date().toLocaleString(),action,item});
+  audit.push({
+    time:new Date().toLocaleString(),
+    action,
+    item
+  });
   localStorage.audit = JSON.stringify(audit);
 }
 
@@ -64,15 +69,26 @@ function showInventory(){
     <h2>Products Dashboard</h2>
     <button onclick="openModal()">➕ Create Item</button>
     <button class="secondary" onclick="exportCSV('inventory')">Export CSV</button>
+
     <table>
-      <tr><th>Name</th><th>SKU</th><th>Qty</th><th>Cost</th><th>Value</th></tr>
+      <tr>
+        <th>Name</th>
+        <th>SKU</th>
+        <th>Qty</th>
+        <th>Cost</th>
+        <th>Value</th>
+        <th>Actions</th>
+      </tr>
       ${inventory.map((i,n)=>`
-      <tr onclick="openRecord(${n})">
-        <td>${i.name}</td>
+      <tr>
+        <td onclick="openRecord(${n})">${i.name}</td>
         <td>${i.sku}</td>
         <td>${i.qty}</td>
-        <td>$${i.cost}</td>
+        <td>$${i.cost.toFixed(2)}</td>
         <td>$${(i.qty*i.cost).toFixed(2)}</td>
+        <td>
+          <button class="danger" onclick="deleteItem(${n})">Delete</button>
+        </td>
       </tr>`).join("")}
     </table>
   </div>`;
@@ -85,13 +101,29 @@ function openRecord(i){
     <h2>${p.name} (Record)</h2>
     <p><b>SKU:</b> ${p.sku}</p>
     <p><b>Quantity:</b> ${p.qty}</p>
-    <p><b>Cost:</b> $${p.cost}</p>
+    <p><b>Cost:</b> $${p.cost.toFixed(2)}</p>
     <p><b>Total Value:</b> $${(p.qty*p.cost).toFixed(2)}</p>
+
     <h3>Audit History</h3>
-    ${audit.filter(a=>a.item===p.name).map(a=>`<div>${a.time} — ${a.action}</div>`).join("")}
+    ${audit.filter(a=>a.item===p.name).map(a=>`
+      <div>${a.time} — ${a.action}</div>
+    `).join("")}
+
     <br>
     <button onclick="showInventory()">Back</button>
+    <button class="danger" onclick="deleteItem(${i})">Delete Item</button>
   </div>`;
+}
+
+function deleteItem(i){
+  const itemName = inventory[i].name;
+  if (!confirm(`Are you sure you want to delete "${itemName}"? This will be logged.`)) return;
+
+  inventory.splice(i,1);
+  log("DELETE ITEM", itemName);
+
+  localStorage.inventory = JSON.stringify(inventory);
+  showInventory();
 }
 
 function showReports(){
@@ -108,7 +140,7 @@ function exportCSV(type){
     ? [["Name","SKU","Qty","Cost"],...inventory.map(i=>[i.name,i.sku,i.qty,i.cost])]
     : [["Time","Action","Item"],...audit.map(a=>[a.time,a.action,a.item])];
 
-  let csv = rows.map(r=>r.join(",")).join("\\n");
+  let csv = rows.map(r=>r.join(",")).join("\n");
   let a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv]));
   a.download = type+".csv";
@@ -119,10 +151,16 @@ function openModal(){modal.style.display="flex";}
 function closeModal(){modal.style.display="none";}
 
 function addItem(){
-  inventory.push({name:name.value,sku:sku.value,cost:+cost.value,qty:+qty.value});
-  log("CREATE ITEM",name.value);
+  inventory.push({
+    name:name.value,
+    sku:sku.value,
+    cost:+cost.value,
+    qty:+qty.value
+  });
+  log("CREATE ITEM", name.value);
   localStorage.inventory = JSON.stringify(inventory);
-  closeModal();showInventory();
+  closeModal();
+  showInventory();
 }
 
 showInventory();
