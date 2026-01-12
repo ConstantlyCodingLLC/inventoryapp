@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Inventory Management</title>
-
 <style>
 body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;}
 .header {height:56px;background:#0b5cab;color:#fff;display:flex;align-items:center;padding:0 20px;font-weight:600;}
@@ -24,7 +23,6 @@ th {background:#f9fafb;}
 input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radius:4px;}
 </style>
 </head>
-
 <body>
 
 <div class="header">Inventory Management</div>
@@ -33,6 +31,7 @@ input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radiu
   <div class="sidebar">
     <a onclick="showInventory()">Products</a>
     <a onclick="showReports()">Reports</a>
+    <a onclick="logout()">Logout</a>
   </div>
   <div class="main" id="content"></div>
 </div>
@@ -50,35 +49,49 @@ input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radiu
   </div>
 </div>
 
-<script>
-/* =========================
-   ACTIVE DIRECTORY (MOCK)
-   Supabase-ready
-========================= */
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-const currentUser = {
-  id: "user-123",
-  email: "admin@company.com",
-  role: "admin" // change to "user" to test permissions
-};
+const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'
+const supabaseKey = 'process.env.SUPABASE_KEY' // replace with your anon key
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-/* ========================= */
+let currentAsset = null
 
-let inventory = JSON.parse(localStorage.inventory || "[]");
-let audit = JSON.parse(localStorage.audit || "[]");
-let currentAssetIndex = null;
+// Check login
+const supabaseUser = JSON.parse(sessionStorage.getItem('supabase_user'))
+if (!supabaseUser) window.location.href = 'login.html'
 
-function log(action, item) {
-  audit.push({
-    time: new Date().toLocaleString(),
-    action,
-    item,
-    user: currentUser.email
-  });
-  localStorage.audit = JSON.stringify(audit);
+// ============================
+// FUNCTIONS
+// ============================
+
+async function fetchInventory() {
+  const { data, error } = await supabase.from('inventory').select('*')
+  if (error) { console.error(error); return [] }
+  return data
 }
 
-function showInventory() {
+async function fetchAudit(itemName) {
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .select('*')
+    .eq('item_name', itemName)
+    .order('created_at', { ascending: false })
+  if (error) { console.error(error); return [] }
+  return data
+}
+
+async function log(action, itemName) {
+  await supabase.from('audit_logs').insert([{
+    item_name: itemName,
+    action,
+    user_email: supabaseUser.email
+  }])
+}
+
+async function showInventory() {
+  const inventory = await fetchInventory()
   content.innerHTML = `
     <div class="card">
       <h2>Products Dashboard</h2>
@@ -86,109 +99,123 @@ function showInventory() {
       <button class="secondary" onclick="exportCSV('inventory')">Export CSV</button>
 
       <table>
-        <tr>
-          <th>Name</th><th>Model</th><th>Qty</th><th>Cost</th><th>Value</th>
-        </tr>
+        <tr><th>Name</th><th>Model</th><th>Qty</th><th>Cost</th><th>Value</th></tr>
         ${inventory.map((i,n)=>`
-          <tr onclick="openRecord(${n})">
+          <tr onclick="openRecord(${i.id})">
             <td>${i.name}</td>
             <td>${i.model}</td>
             <td>${i.qty}</td>
             <td>$${i.cost}</td>
             <td>$${(i.qty*i.cost).toFixed(2)}</td>
           </tr>
-        `).join("")}
+        `).join('')}
       </table>
     </div>
-  `;
+  `
 }
 
-function openRecord(index) {
-  currentAssetIndex = index;
-  const p = inventory[index];
+async function openRecord(id) {
+  const { data: p, error } = await supabase.from('inventory').select('*').eq('id', id).single()
+  if (error) return console.error(error)
+  currentAsset = p
+
+  const audit = await fetchAudit(p.name)
 
   content.innerHTML = `
     <div class="card">
       <h2>${p.name} (Asset Record)</h2>
-
       <p><b>Model:</b> ${p.model}</p>
-      <p><b>Quantity:</b> ${p.qty}</p>
+      <p><b>Qty:</b> ${p.qty}</p>
       <p><b>Cost:</b> $${p.cost}</p>
       <p><b>Total Value:</b> $${(p.qty*p.cost).toFixed(2)}</p>
 
       <h3>Audit History</h3>
-      ${audit.filter(a=>a.item===p.name).map(a=>`
-        <div>${a.time} — ${a.action} — ${a.user}</div>
-      `).join("")}
-
+      ${audit.map(a=>`<div>${a.created_at} — ${a.action} — ${a.user_email}</div>`).join('')}
       <br>
       <button onclick="showInventory()">Back</button>
-      ${currentUser.role === "admin"
+      ${supabaseUser.role === 'admin'
         ? `<button class="danger" onclick="deleteCurrentAsset()">Delete Asset</button>`
-        : `<p><i>You do not have permission to delete assets.</i></p>`
-      }
+        : `<p><i>You do not have permission to delete assets.</i></p>`}
     </div>
-  `;
+  `
 }
 
-function deleteCurrentAsset() {
-  if (currentAssetIndex === null) return;
-  if (currentUser.role !== "admin") return alert("Access denied.");
+async function addItem() {
+  const nameEl = document.getElementById('name')
+  const modelEl = document.getElementById('model')
+  const costEl = document.getElementById('cost')
+  const qtyEl = document.getElementById('qty')
 
-  const assetName = inventory[currentAssetIndex].name;
+  const { data, error } = await supabase.from('inventory').insert([{
+    name: nameEl.value,
+    model: modelEl.value,
+    cost: +costEl.value,
+    qty: +qtyEl.value,
+    created_by: supabaseUser.id
+  }])
 
-  if (!confirm(`Are you sure you want to delete "${assetName}"? This action will be logged.`)) return;
+  if (error) return alert(error.message)
+  await log('CREATE ITEM', nameEl.value)
 
-  inventory.splice(currentAssetIndex, 1);
-  log("DELETE ASSET", assetName);
-
-  localStorage.inventory = JSON.stringify(inventory);
-  currentAssetIndex = null;
-
-  showInventory();
+  closeModal()
+  showInventory()
 }
 
-function showReports() {
+async function deleteCurrentAsset() {
+  if (!currentAsset) return
+  if (!confirm(`Are you sure you want to delete "${currentAsset.name}"?`)) return
+
+  const { error } = await supabase.from('inventory').delete().eq('id', currentAsset.id)
+  if (error) return alert(error.message)
+
+  await log('DELETE ASSET', currentAsset.name)
+  currentAsset = null
+  showInventory()
+}
+
+function openModal(){ modal.style.display='flex' }
+function closeModal(){ modal.style.display='none' }
+
+async function showReports() {
+  const { data: audit, error } = await supabase.from('audit_logs').select('*').order('created_at', { ascending:false })
+  if (error) return console.error(error)
+  const { data: inventoryData } = await supabase.from('inventory').select('*')
+  const totalValue = inventoryData.reduce((s,i)=>s+i.qty*i.cost,0).toFixed(2)
+
   content.innerHTML = `
     <div class="card">
       <h2>Reports & Audit</h2>
       <button onclick="exportCSV('audit')">Export Audit CSV</button>
-      <p><b>Total Inventory Value:</b> $${inventory.reduce((s,i)=>s+i.qty*i.cost,0).toFixed(2)}</p>
+      <p><b>Total Inventory Value:</b> $${totalValue}</p>
+      <h3>Audit Logs</h3>
+      ${audit.map(a=>`<div>${a.created_at} — ${a.action} — ${a.user_email}</div>`).join('')}
     </div>
-  `;
+  `
 }
 
-function exportCSV(type) {
-  let rows = type === "inventory"
-    ? [["Name","Model","Qty","Cost"], ...inventory.map(i=>[i.name,i.model,i.qty,i.cost])]
-    : [["Time","Action","Item","User"], ...audit.map(a=>[a.time,a.action,a.item,a.user])];
-
-  let csv = rows.map(r=>r.join(",")).join("\n");
-  let a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv]));
-  a.download = type + ".csv";
-  a.click();
+function logout() {
+  supabase.auth.signOut()
+  sessionStorage.clear()
+  window.location.href='login.html'
 }
 
-function openModal() { modal.style.display = "flex"; }
-function closeModal() { modal.style.display = "none"; }
-
-function addItem() {
-  inventory.push({
-    name: name.value,
-    model: model.value,
-    cost: +cost.value,
-    qty: +qty.value
-  });
-
-  log("CREATE ITEM", name.value);
-  localStorage.inventory = JSON.stringify(inventory);
-  closeModal();
-  showInventory();
+async function exportCSV(type) {
+  let rows
+  if (type==='inventory') {
+    const { data } = await supabase.from('inventory').select('*')
+    rows = [['Name','Model','Qty','Cost'], ...data.map(i=>[i.name,i.model,i.qty,i.cost])]
+  } else {
+    const { data } = await supabase.from('audit_logs').select('*')
+    rows = [['Time','Action','Item','User'], ...data.map(a=>[a.created_at,a.action,a.item_name,a.user_email])]
+  }
+  const csv = rows.map(r=>r.join(',')).join('\n')
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([csv]))
+  a.download = type+'.csv'
+  a.click()
 }
 
-showInventory();
+showInventory()
 </script>
-
 </body>
 </html>
