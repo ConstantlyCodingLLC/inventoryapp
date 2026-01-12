@@ -1,123 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>Inventory Management</title>
 
 <style>
-body {
-  margin: 0;
-  font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  background: #f5f6f7;
-}
-
-.header {
-  height: 56px;
-  background: #0b5cab;
-  color: white;
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.container {
-  display: flex;
-  height: calc(100vh - 56px);
-}
-
-.sidebar {
-  width: 240px;
-  background: #1f2937;
-  color: #d1d5db;
-  padding-top: 20px;
-}
-
-.sidebar h3 {
-  color: #9ca3af;
-  font-size: 12px;
-  padding: 10px 20px;
-  text-transform: uppercase;
-}
-
-.sidebar a {
-  display: block;
-  padding: 12px 20px;
-  color: #d1d5db;
-  text-decoration: none;
-}
-
-.sidebar a:hover {
-  background: #374151;
-}
-
-.main {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.card {
-  background: white;
-  border-radius: 6px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-button {
-  background: #0b5cab;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button.secondary {
-  background: #6b7280;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
-
-th, td {
-  padding: 10px;
-  border-bottom: 1px solid #e5e7eb;
-  text-align: left;
-}
-
-th {
-  background: #f9fafb;
-  font-weight: 600;
-}
-
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: none;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-content {
-  background: white;
-  padding: 20px;
-  width: 400px;
-  border-radius: 6px;
-}
-
-input, select {
-  width: 100%;
-  padding: 8px;
-  margin: 6px 0;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-}
+body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;}
+.header {height:56px;background:#0b5cab;color:#fff;display:flex;align-items:center;padding:0 20px;font-weight:600;}
+.container {display:flex;height:calc(100vh - 56px);}
+.sidebar {width:240px;background:#1f2937;color:#d1d5db;}
+.sidebar a {display:block;padding:12px 20px;color:#d1d5db;text-decoration:none;}
+.sidebar a:hover {background:#374151;}
+.main {flex:1;padding:20px;overflow:auto;}
+.card {background:#fff;padding:20px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+button {background:#0b5cab;color:#fff;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;}
+button.secondary {background:#6b7280;}
+table {width:100%;border-collapse:collapse;margin-top:15px;}
+th,td {padding:10px;border-bottom:1px solid #e5e7eb;}
+th {background:#f9fafb;}
+.modal {position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;}
+.modal-content {background:#fff;padding:20px;width:420px;border-radius:6px;}
+input,select {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radius:4px;}
 </style>
 </head>
 
@@ -126,168 +29,100 @@ input, select {
 <div class="header">Inventory Management</div>
 
 <div class="container">
-
   <div class="sidebar">
-    <h3>Inventory</h3>
-    <a href="#" onclick="showInventory()">Products</a>
-    <a href="#" onclick="showReports()">Reports</a>
+    <a onclick="showInventory()">Products</a>
+    <a onclick="showReports()">Reports</a>
   </div>
-
   <div class="main" id="content"></div>
-
 </div>
 
-<!-- CREATE ITEM MODAL -->
+<!-- CREATE ITEM -->
 <div class="modal" id="modal">
   <div class="modal-content">
     <h3>Create Item</h3>
     <input id="name" placeholder="Item Name">
     <input id="sku" placeholder="SKU">
-    <input id="cost" type="number" placeholder="Cost Per Unit">
+    <input id="cost" type="number" placeholder="Cost">
     <input id="qty" type="number" placeholder="Quantity">
-    <button onclick="addProduct()">Create</button>
+    <button onclick="addItem()">Create</button>
     <button class="secondary" onclick="closeModal()">Cancel</button>
   </div>
 </div>
 
 <script>
-let inventory = JSON.parse(localStorage.getItem("inventory")) || [];
-let auditLog = JSON.parse(localStorage.getItem("auditLog")) || [];
+let inventory = JSON.parse(localStorage.inventory||"[]");
+let audit = JSON.parse(localStorage.audit||"[]");
 
-function logAudit(action, details) {
-  auditLog.push({
-    time: new Date().toLocaleString(),
-    action,
-    details
-  });
-  localStorage.setItem("auditLog", JSON.stringify(auditLog));
+function log(action,item){
+  audit.push({time:new Date().toLocaleString(),action,item});
+  localStorage.audit = JSON.stringify(audit);
 }
 
-function showInventory() {
-  document.getElementById("content").innerHTML = `
-    <div class="card">
-      <h2>Products Dashboard</h2>
-      <button onclick="openModal()">➕ Create Item</button>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>SKU</th>
-            <th>Quantity</th>
-            <th>Cost</th>
-            <th>Total Value</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="inventoryTable"></tbody>
-      </table>
-    </div>
-  `;
-  renderInventory();
+function showInventory(){
+  content.innerHTML = `
+  <div class="card">
+    <h2>Products Dashboard</h2>
+    <button onclick="openModal()">➕ Create Item</button>
+    <button class="secondary" onclick="exportCSV('inventory')">Export CSV</button>
+    <table>
+      <tr><th>Name</th><th>SKU</th><th>Qty</th><th>Cost</th><th>Value</th></tr>
+      ${inventory.map((i,n)=>`
+      <tr onclick="openRecord(${n})">
+        <td>${i.name}</td>
+        <td>${i.sku}</td>
+        <td>${i.qty}</td>
+        <td>$${i.cost}</td>
+        <td>$${(i.qty*i.cost).toFixed(2)}</td>
+      </tr>`).join("")}
+    </table>
+  </div>`;
 }
 
-function renderInventory() {
-  const table = document.getElementById("inventoryTable");
-  table.innerHTML = "";
-
-  inventory.forEach((p, i) => {
-    table.innerHTML += `
-      <tr>
-        <td>${p.name}</td>
-        <td>${p.sku}</td>
-        <td>${p.qty}</td>
-        <td>$${p.cost.toFixed(2)}</td>
-        <td>$${(p.qty * p.cost).toFixed(2)}</td>
-        <td>
-          <button onclick="stockIn(${i})">IN</button>
-          <button class="secondary" onclick="stockOut(${i})">OUT</button>
-        </td>
-      </tr>
-    `;
-  });
-
-  localStorage.setItem("inventory", JSON.stringify(inventory));
+function openRecord(i){
+  const p = inventory[i];
+  content.innerHTML = `
+  <div class="card">
+    <h2>${p.name} (Record)</h2>
+    <p><b>SKU:</b> ${p.sku}</p>
+    <p><b>Quantity:</b> ${p.qty}</p>
+    <p><b>Cost:</b> $${p.cost}</p>
+    <p><b>Total Value:</b> $${(p.qty*p.cost).toFixed(2)}</p>
+    <h3>Audit History</h3>
+    ${audit.filter(a=>a.item===p.name).map(a=>`<div>${a.time} — ${a.action}</div>`).join("")}
+    <br>
+    <button onclick="showInventory()">Back</button>
+  </div>`;
 }
 
-function showReports() {
-  document.getElementById("content").innerHTML = `
-    <div class="card">
-      <h2>Audit & Reports</h2>
-
-      <label>Report Type</label>
-      <select id="reportType" onchange="runReport()">
-        <option value="">Select</option>
-        <option value="value">Inventory Value</option>
-        <option value="low">Low Stock</option>
-        <option value="audit">Audit Log</option>
-      </select>
-
-      <div id="reportResults" style="margin-top:15px;"></div>
-    </div>
-  `;
+function showReports(){
+  content.innerHTML = `
+  <div class="card">
+    <h2>Reports & Audit</h2>
+    <button onclick="exportCSV('audit')">Export Audit CSV</button>
+    <p><b>Total Inventory Value:</b> $${inventory.reduce((s,i)=>s+i.qty*i.cost,0).toFixed(2)}</p>
+  </div>`;
 }
 
-function runReport() {
-  const type = document.getElementById("reportType").value;
-  const out = document.getElementById("reportResults");
+function exportCSV(type){
+  let rows = type==="inventory"
+    ? [["Name","SKU","Qty","Cost"],...inventory.map(i=>[i.name,i.sku,i.qty,i.cost])]
+    : [["Time","Action","Item"],...audit.map(a=>[a.time,a.action,a.item])];
 
-  if (type === "value") {
-    const total = inventory.reduce((s,p)=>s+(p.qty*p.cost),0);
-    out.innerHTML = `<strong>Total Inventory Value:</strong> $${total.toFixed(2)}`;
-  }
-
-  if (type === "low") {
-    out.innerHTML = inventory
-      .filter(p=>p.qty<5)
-      .map(p=>`${p.name} (${p.qty})`)
-      .join("<br>") || "No low stock items";
-  }
-
-  if (type === "audit") {
-    out.innerHTML = auditLog.map(a =>
-      `<div>${a.time} — ${a.action}: ${a.details}</div>`
-    ).join("");
-  }
+  let csv = rows.map(r=>r.join(",")).join("\\n");
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv]));
+  a.download = type+".csv";
+  a.click();
 }
 
-function openModal() {
-  document.getElementById("modal").style.display = "flex";
-}
+function openModal(){modal.style.display="flex";}
+function closeModal(){modal.style.display="none";}
 
-function closeModal() {
-  document.getElementById("modal").style.display = "none";
-}
-
-function addProduct() {
-  inventory.push({
-    name: name.value,
-    sku: sku.value,
-    cost: parseFloat(cost.value),
-    qty: parseInt(qty.value)
-  });
-  logAudit("CREATE ITEM", name.value);
-  closeModal();
-  showInventory();
-}
-
-function stockIn(i) {
-  const q = parseInt(prompt("Quantity IN"));
-  const c = parseFloat(prompt("Unit Cost"));
-  inventory[i].cost =
-    ((inventory[i].cost * inventory[i].qty) + (c * q)) /
-    (inventory[i].qty + q);
-  inventory[i].qty += q;
-  logAudit("STOCK IN", inventory[i].name + " +" + q);
-  renderInventory();
-}
-
-function stockOut(i) {
-  const q = parseInt(prompt("Quantity OUT"));
-  if (q <= inventory[i].qty) {
-    inventory[i].qty -= q;
-    logAudit("STOCK OUT", inventory[i].name + " -" + q);
-    renderInventory();
-  } else alert("Insufficient stock");
+function addItem(){
+  inventory.push({name:name.value,sku:sku.value,cost:+cost.value,qty:+qty.value});
+  log("CREATE ITEM",name.value);
+  localStorage.inventory = JSON.stringify(inventory);
+  closeModal();showInventory();
 }
 
 showInventory();
