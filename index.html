@@ -51,12 +51,30 @@ input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radiu
 </div>
 
 <script>
+/* =========================
+   ACTIVE DIRECTORY (MOCK)
+   Supabase-ready
+========================= */
+
+const currentUser = {
+  id: "user-123",
+  email: "admin@company.com",
+  role: "admin" // change to "user" to test permissions
+};
+
+/* ========================= */
+
 let inventory = JSON.parse(localStorage.inventory || "[]");
 let audit = JSON.parse(localStorage.audit || "[]");
 let currentAssetIndex = null;
 
 function log(action, item) {
-  audit.push({ time: new Date().toLocaleString(), action, item });
+  audit.push({
+    time: new Date().toLocaleString(),
+    action,
+    item,
+    user: currentUser.email
+  });
   localStorage.audit = JSON.stringify(audit);
 }
 
@@ -69,7 +87,7 @@ function showInventory() {
 
       <table>
         <tr>
-          <th>Name</th><th>SKU</th><th>Qty</th><th>Cost</th><th>Value</th>
+          <th>Name</th><th>Model</th><th>Qty</th><th>Cost</th><th>Value</th>
         </tr>
         ${inventory.map((i,n)=>`
           <tr onclick="openRecord(${n})">
@@ -93,29 +111,33 @@ function openRecord(index) {
     <div class="card">
       <h2>${p.name} (Asset Record)</h2>
 
-      <p><b>model:</b> ${p.model}</p>
+      <p><b>Model:</b> ${p.model}</p>
       <p><b>Quantity:</b> ${p.qty}</p>
       <p><b>Cost:</b> $${p.cost}</p>
       <p><b>Total Value:</b> $${(p.qty*p.cost).toFixed(2)}</p>
 
       <h3>Audit History</h3>
       ${audit.filter(a=>a.item===p.name).map(a=>`
-        <div>${a.time} — ${a.action}</div>
+        <div>${a.time} — ${a.action} — ${a.user}</div>
       `).join("")}
 
       <br>
       <button onclick="showInventory()">Back</button>
-      <button class="danger" onclick="deleteCurrentAsset()">Delete Asset</button>
+      ${currentUser.role === "admin"
+        ? `<button class="danger" onclick="deleteCurrentAsset()">Delete Asset</button>`
+        : `<p><i>You do not have permission to delete assets.</i></p>`
+      }
     </div>
   `;
 }
 
 function deleteCurrentAsset() {
   if (currentAssetIndex === null) return;
+  if (currentUser.role !== "admin") return alert("Access denied.");
 
   const assetName = inventory[currentAssetIndex].name;
 
-  if (!confirm(`Are you sure you want to delete "${assetName}"? This will be logged.`)) return;
+  if (!confirm(`Are you sure you want to delete "${assetName}"? This action will be logged.`)) return;
 
   inventory.splice(currentAssetIndex, 1);
   log("DELETE ASSET", assetName);
@@ -138,8 +160,8 @@ function showReports() {
 
 function exportCSV(type) {
   let rows = type === "inventory"
-    ? [["Name","model","Qty","Cost"], ...inventory.map(i=>[i.name,i.sku,i.qty,i.cost])]
-    : [["Time","Action","Item"], ...audit.map(a=>[a.time,a.action,a.item])];
+    ? [["Name","Model","Qty","Cost"], ...inventory.map(i=>[i.name,i.model,i.qty,i.cost])]
+    : [["Time","Action","Item","User"], ...audit.map(a=>[a.time,a.action,a.item,a.user])];
 
   let csv = rows.map(r=>r.join(",")).join("\n");
   let a = document.createElement("a");
@@ -154,7 +176,7 @@ function closeModal() { modal.style.display = "none"; }
 function addItem() {
   inventory.push({
     name: name.value,
-    sku: sku.value,
+    model: model.value,
     cost: +cost.value,
     qty: +qty.value
   });
