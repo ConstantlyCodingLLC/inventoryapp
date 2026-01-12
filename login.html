@@ -2,161 +2,99 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Inventory Login</title>
+<title>Inventory Management - Login</title>
 <style>
 body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;display:flex;justify-content:center;align-items:center;height:100vh;}
-.card {background:#fff;padding:40px;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,.1);width:320px;}
-input {width:100%;padding:10px;margin:10px 0;border:1px solid #d1d5db;border-radius:4px;}
-button {background:#0b5cab;color:#fff;border:none;padding:10px;width:100%;border-radius:4px;cursor:pointer;margin-top:5px;}
+.container {background:#fff;padding:40px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.2);width:320px;}
+h2 {text-align:center;margin-bottom:20px;}
+input {width:100%;padding:10px;margin:8px 0;border:1px solid #d1d5db;border-radius:4px;}
+button {width:100%;padding:10px;margin-top:10px;background:#0b5cab;color:#fff;border:none;border-radius:4px;cursor:pointer;}
 button.secondary {background:#6b7280;}
-button.contact {background:#10b981;} /* green for contact */
-p.link {text-align:center;margin-top:10px;}
+p {text-align:center;margin-top:10px;font-size:14px;}
+a {color:#0b5cab;text-decoration:none;}
 </style>
 </head>
 <body>
-<div class="card">
-  <h2>Inventory Login</h2>
-  <input id="email" type="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
-  <button id="loginBtn">Login</button>
-  <button id="signupBtn" class="secondary">Sign Up</button>
-  <button id="contactBtn" class="contact">Contact</button>
-  <p id="error" style="color:red"></p>
-</div>
 
-<script type="module">
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+<div class="container">
+  <!-- Sign Up -->
+  <div id="signup-form">
+    <h2>Sign Up</h2>
+    <input type="email" id="signup-email" placeholder="Email">
+    <input type="password" id="signup-password" placeholder="Password">
+    <button onclick="signUp()">Sign Up</button>
+    <p>Already have an account? <a href="#" onclick="toggleForms()">Login</a></p>
+  </div>
 
-// ================================
-// YOUR SUPABASE CONFIG
-// ================================
-const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'
-const supabaseKey = 'sb_publishable_KkhECSRdPpQAsghazUIoYw_NtoKdQn8'
-const supabase = createClient(supabaseUrl, supabaseKey)
-
-// ================================
-// DOM ELEMENTS
-// ================================
-const emailInput = document.getElementById('email')
-const passwordInput = document.getElementById('password')
-const errorEl = document.getElementById('error')
-
-document.getElementById('loginBtn').addEventListener('click', login)
-document.getElementById('signupBtn').addEventListener('click', signup)
-document.getElementById('contactBtn').addEventListener('click', contact)
-
-// ================================
-// LOGIN FUNCTION
-// ================================
-async function login() {
-  const email = emailInput.value
-  const password = passwordInput.value
-  errorEl.textContent = ''
-
-  if (!email || !password) { errorEl.textContent = 'Enter email and password'; return }
-
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) { errorEl.textContent = error.message; return }
-
-  // fetch user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', data.user.id)
-    .single()
-
-  if (profileError) { errorEl.textContent = profileError.message; return }
-
-  sessionStorage.setItem('supabase_user', JSON.stringify({
-    id: data.user.id,
-    email: profile.email,
-    role: profile.role
-  }))
-
-  // Redirect to index.html (inventory dashboard)
-  window.location.href = 'index.html'
-}
-
-// ================================
-// SIGN UP FUNCTION
-// ================================
-async function signup() {
-  const email = emailInput.value
-  const password = passwordInput.value
-  errorEl.textContent = ''
-
-  if (!email || !password) { errorEl.textContent = 'Enter email and password'; return }
-
-  const { data, error } = await supabase.auth.signUp({ email, password })
-  if (error) { errorEl.textContent = error.message; return }
-
-  // Create profile in user_profiles table
-  await supabase.from('user_profiles').insert([{
-    user_id: data.user.id,
-    email: data.user.email,
-    role: 'user'
-  }])
-
-  alert('Sign Up Successful! Please log in.')
-}
-
-// ================================
-// CONTACT FUNCTION
-// ================================
-function contact() {
-  window.location.href = 'mailto:constantlycodingllc@gmail.com'
-}
-</script>
-
-  <!-- Login Form -->
-<div id="login-form">
-  <h2>Login</h2>
-  <input type="email" id="login-email" placeholder="Email">
-  <input type="password" id="login-password" placeholder="Password">
-  <button onclick="login()">Login</button>
+  <!-- Login -->
+  <div id="login-form" style="display:none;">
+    <h2>Login</h2>
+    <input type="email" id="login-email" placeholder="Email">
+    <input type="password" id="login-password" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <p>Don't have an account? <a href="#" onclick="toggleForms()">Sign Up</a></p>
+  </div>
 </div>
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'; // Your Supabase URL
-const supabaseKey = 'sb_publishable_KkhECSRdPpQAsghazUIoYw_NtoKdQn8'; // Your public anon key
+const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'; // Replace with your Supabase URL
+const supabaseKey = 'sb_publishable_KkhECSRdPpQAsghazUIoYw_NtoKdQn8'; // Replace with your public anon key
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Toggle between Sign Up and Login forms
+function toggleForms() {
+  const signup = document.getElementById('signup-form');
+  const login = document.getElementById('login-form');
+  signup.style.display = signup.style.display === 'none' ? 'block' : 'none';
+  login.style.display = login.style.display === 'none' ? 'block' : 'none';
+}
+
+// Sign Up Function
+async function signUp() {
+  const email = document.getElementById('signup-email').value;
+  const password = document.getElementById('signup-password').value;
+
+  // 1️⃣ Sign up user with Supabase Auth
+  const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+  if (authError) return alert('Error signing up: ' + authError.message);
+
+  // 2️⃣ Insert into user_profiles
+  const { error: profileError } = await supabase
+    .from('user_profiles')
+    .insert([{ user_id: authData.user.id, email: authData.user.email, role: 'user' }]);
+
+  if (profileError) return alert('Error creating user profile: ' + profileError.message);
+
+  alert('Sign Up successful! You can now log in.');
+  toggleForms();
+}
+
+// Login Function
 async function login() {
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-password').value;
 
-  // 1️⃣ Sign in the user with Supabase Auth
+  // 1️⃣ Sign in user
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+  if (authError) return alert('Login failed: ' + authError.message);
 
-  if (authError) {
-    alert('Login failed: ' + authError.message);
-    return;
-  }
-
-  // 2️⃣ Fetch the user's profile to get role
+  // 2️⃣ Fetch user profile to get role
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
     .select('role, email')
     .eq('user_id', authData.user.id)
     .single();
 
-  if (profileError) {
-    alert('Error fetching user profile: ' + profileError.message);
-    return;
-  }
+  if (profileError) return alert('Error fetching profile: ' + profileError.message);
 
-  // 3️⃣ Save user info locally (or in memory)
-  window.currentUser = {
-    id: authData.user.id,
-    email: profile.email,
-    role: profile.role
-  };
+  // 3️⃣ Save current user
+  window.currentUser = { id: authData.user.id, email: profile.email, role: profile.role };
 
   alert(`Login successful! Welcome ${profile.email} (${profile.role})`);
-  
-  // 4️⃣ Redirect or load main inventory page
+
+  // 4️⃣ Redirect to main inventory dashboard
   window.location.href = 'index.html';
 }
 </script>
