@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Inventory Management</title>
+<style>
+body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;}
+.header {height:56px;background:#0b5cab;color:#fff;display:flex;align-items:center;padding:0 20px;font-weight:600;}
+.container {display:flex;height:calc(100vh - 56px);}
+.sidebar {width:240px;background:#1f2937;color:#d1d5db;}
+.sidebar a {display:block;padding:12px 20px;color:#d1d5db;text-decoration:none;}
+.sidebar a:hover {background:#374151;}
+.main {flex:1;padding:20px;overflow:auto;}
+.card {background:#fff;padding:20px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+button {background:#0b5cab;color:#fff;border:none;padding:8px 14px;border-radius:4px;cursor:pointer;}
+button.secondary {background:#6b7280;}
+button.danger {background:#b91c1c;}
+table {width:100%;border-collapse:collapse;margin-top:15px;}
+th,td {padding:10px;border-bottom:1px solid #e5e7eb;}
+th {background:#f9fafb;}
+.modal {position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;}
+.modal-content {background:#fff;padding:20px;width:420px;border-radius:6px;}
+input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radius:4px;}
+</style>
+</head>
+
+<body>
+
+<div class="header">Inventory Management</div>
+
+<div class="container">
+  <div class="sidebar">
+    <a onclick="showInventory()">Products</a>
+    <a onclick="showReports()">Reports</a>
+    <a onclick="logout()">Logout</a>
+  </div>
+  <div class="main" id="content"></div>
+</div>
+
+<!-- CREATE ITEM MODAL -->
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h3>Create Item</h3>
+    <input id="name" placeholder="Item Name">
+    <input id="model" placeholder="Model">
+    <input id="cost" type="number" placeholder="Cost">
+    <input id="qty" type="number" placeholder="Quantity">
+    <button onclick="addItem()">Create</button>
+    <button class="secondary" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<script type="module">
+import { supabase } from './supabase.js'
+
+let session = null
+let currentUser = null
+
+async function checkAuth() {
+  const { data } = await supabase.auth.getSession()
+  session = data.session
+  if (!session) window.location.href = 'login.html'
+  currentUser = session.user
+}
+
+await checkAuth()
+
+let inventory = []
+let audit = []
+let currentAssetIndex = null
+
+// Load inventory and audit from Supabase
+async function loadData() {
+  const { data: invData, error: invError } = await supabase
+    .from('inventory')
+    .select('*')
+  const { data: auditData } = await supabase
+    .from('audit_logs')
+    .select('*')
+
+  if (invError) console.error(invError)
+  inventory = invData || []
+  audit = auditData || []
+}
+
+await loadData()
+
+function log(action, item) {
+  audit.push({
+    time: new Date().toISOString(),
+    action,
+    item,
+    user: currentUser.email
+  })
+  supabase.from('audit_logs').insert([{
+    action,
+    item,
+    user: currentUser.email
+  }])
+}
+
+function showInventory() {
+  content.innerHTML = `
+    <div class="card">
+      <h2>Products Dashboard</h2>
+      <button onclick="openModal()">➕ Create Item</button>
+      <table>
+        <tr><th>Name</th><th>Model</th><th>Qty</th><th>Cost</th><th>Value</th></tr>
+        ${inventory.map((i,n)=>`
+          <tr onclick="openRecord(${n})">
+            <td>${i.name}</td>
+            <td>${i.model}</td>
+            <td>${i.qty}</td>
+            <td>$${i.cost}</td>
+            <td>$${(i.qty*i.cost).toFixed(2)}</td>
+          </tr>`).join("")}
+      </table>
+    </div>
+  `
+}
+
+function openRecord(index) {
+  currentAssetIndex = index
+  const p = inventory[index]
+
+  content.innerHTML = `
+    <div class="card">
+      <h2>${p.name} (Asset Record)</h2>
+      <p><b>Model:</b> ${p.model}</p>
+      <p><b>Quantity:</b> ${p.qty}</p>
+      <p><b>Cost:</b> $${p.cost}</p>
+      <p><b>Total Value:</b> $${(p.qty*p.cost).toFixed(2)}</p>
+
+      <h3>Audit History</h3>
+      ${audit.filter(a=>a.item===p.name).map(a=>`
+        <div>${a.time} — ${a.action} — ${a.user}</div>
+      `).join("")}
+
+      <br>
+      <button onclick="showInventory()">Back</button>
+      <button class="danger" onclick="deleteCurrentAsset()">Delete Asset</button>
+    </div>
+  `
+}
+
+async function deleteCurrentAsset() {
+  if (currentAssetIndex === null) return
+  const asset = inventory[currentAssetIndex]
+  if (!confirm(`Are you sure you want to delete "${asset.name}"?`)) return
+
+  await supabase.from('inventory').delete().eq('id', asset.id)
+  log('DELETE ASSET', asset.name)
+  inventory.splice(currentAssetIndex, 1)
+  currentAssetIndex = null
+  showInventory()
+}
+
+function showReports() {
+  content.innerHTML = `
+    <div class="card">
+      <h2>Reports & Audit</h2>
+      <p><b>Total Inventory Value:</b> $${inventory.reduce((s,i)=>s+i.qty*i.cost,0).toFixed(2)}</p>
+      ${audit.map(a=>`<div>${a.time} — ${a.action} — ${a.user}</div>`).join("")}
+    </div>
+  `
+}
+
+function openModal() { modal.style.display = "flex" }
+function closeModal() { modal.style.display = "none" }
+
+async function addItem() {
+  const newItem = {
+    name: name.value,
+    model: model.value,
+    cost: +cost.value,
+    qty: +qty.value
+  }
+  const { data, error } = await supabase.from('inventory').insert([newItem]).select()
+  if (error) return alert(error.message)
+
+  inventory.push(data[0])
+  log('CREATE ITEM', newItem.name)
+  closeModal()
+  showInventory()
+}
+
+async function logout() {
+  await supabase.auth.signOut()
+  window.location.href = 'login.html'
+}
+
+// Initialize dashboard
+showInventory()
+</script>
+
+</body>
+</html>
