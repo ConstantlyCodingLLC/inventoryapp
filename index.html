@@ -5,10 +5,10 @@
 <title>Inventory Management</title>
 <style>
 body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;}
-.header {height:56px;background:#0b5cab;color:#fff;display:flex;align-items:center;padding:0 20px;font-weight:600;}
+.header {height:56px;background:#0b5cab;color:#fff;display:flex;align-items:center;padding:0 20px;font-weight:600;justify-content:space-between;}
 .container {display:flex;height:calc(100vh - 56px);}
 .sidebar {width:240px;background:#1f2937;color:#d1d5db;}
-.sidebar a {display:block;padding:12px 20px;color:#d1d5db;text-decoration:none;}
+.sidebar a {display:block;padding:12px 20px;color:#d1d5db;text-decoration:none;cursor:pointer;}
 .sidebar a:hover {background:#374151;}
 .main {flex:1;padding:20px;overflow:auto;}
 .card {background:#fff;padding:20px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.1);}
@@ -26,13 +26,15 @@ input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radiu
 
 <body>
 
-<div class="header">Inventory Management</div>
+<div class="header">
+  <span>Inventory Management</span>
+  <button onclick="logout()">Logout</button>
+</div>
 
 <div class="container">
   <div class="sidebar">
     <a onclick="showInventory()">Products</a>
     <a onclick="showReports()">Reports</a>
-    <a onclick="logout()">Logout</a>
   </div>
   <div class="main" id="content"></div>
 </div>
@@ -53,28 +55,29 @@ input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radiu
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-// Supabase setup
 const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4bWFvZ2FzeHRtcGpnaGV2dXh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxODY0MjksImV4cCI6MjA4Mzc2MjQyOX0.OIpey7XNk_8S_mDK8Doz3GAHeN2t2y1jiomjcwgE0BE' // Replace with your anon key
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Auth session check
+// --- Auth check ---
 let session = null
 let currentUser = null
 async function checkAuth() {
   const { data } = await supabase.auth.getSession()
   session = data.session
-  if (!session) window.location.href = 'login.html'
-  currentUser = session.user
+  if (!session) {
+    window.location.href = 'login.html' // send to login if not logged in
+  } else {
+    currentUser = session.user
+  }
 }
 await checkAuth()
 
-// Data
+// --- Data ---
 let inventory = []
 let audit = []
 let currentAssetIndex = null
 
-// Load inventory and audit from Supabase
 async function loadData() {
   const { data: invData, error: invError } = await supabase.from('inventory').select('*')
   const { data: auditData } = await supabase.from('audit_logs').select('*')
@@ -84,7 +87,7 @@ async function loadData() {
 }
 await loadData()
 
-// Logging function
+// --- Logging ---
 function log(action, item) {
   audit.push({
     time: new Date().toISOString(),
@@ -99,7 +102,7 @@ function log(action, item) {
   }])
 }
 
-// Show inventory dashboard
+// --- Dashboard functions ---
 function showInventory() {
   content.innerHTML = `
     <div class="card">
@@ -120,11 +123,9 @@ function showInventory() {
   `
 }
 
-// Open single asset record
 function openRecord(index) {
   currentAssetIndex = index
   const p = inventory[index]
-
   content.innerHTML = `
     <div class="card">
       <h2>${p.name} (Asset Record)</h2>
@@ -145,20 +146,17 @@ function openRecord(index) {
   `
 }
 
-// Delete asset
 async function deleteCurrentAsset() {
   if (currentAssetIndex === null) return
   const asset = inventory[currentAssetIndex]
   if (!confirm(`Are you sure you want to delete "${asset.name}"?`)) return
-
   await supabase.from('inventory').delete().eq('id', asset.id)
   log('DELETE ASSET', asset.name)
-  inventory.splice(currentAssetIndex, 1)
+  inventory.splice(currentAssetIndex,1)
   currentAssetIndex = null
   showInventory()
 }
 
-// Show reports & audit
 function showReports() {
   content.innerHTML = `
     <div class="card">
@@ -169,11 +167,10 @@ function showReports() {
   `
 }
 
-// Modal open/close
+// --- Modal ---
 function openModal() { modal.style.display = "flex" }
 function closeModal() { modal.style.display = "none" }
 
-// Add new item
 async function addItem() {
   const newItem = {
     name: name.value,
@@ -183,20 +180,19 @@ async function addItem() {
   }
   const { data, error } = await supabase.from('inventory').insert([newItem]).select()
   if (error) return alert(error.message)
-
   inventory.push(data[0])
   log('CREATE ITEM', newItem.name)
   closeModal()
   showInventory()
 }
 
-// Logout
+// --- Logout ---
 async function logout() {
   await supabase.auth.signOut()
-  window.location.href = 'login.html' // redirect to login page
+  window.location.href = 'login.html' // redirect
 }
 
-// Initialize dashboard
+// --- Initialize ---
 showInventory()
 </script>
 
