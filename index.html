@@ -8,7 +8,7 @@ body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;}
 .header {height:56px;background:#0b5cab;color:#fff;display:flex;align-items:center;padding:0 20px;font-weight:600;}
 .container {display:flex;height:calc(100vh - 56px);}
 .sidebar {width:240px;background:#1f2937;color:#d1d5db;}
-.sidebar a {display:block;padding:12px 20px;color:#d1d5db;text-decoration:none;cursor:pointer;}
+.sidebar a {display:block;padding:12px 20px;color:#d1d5db;text-decoration:none;}
 .sidebar a:hover {background:#374151;}
 .main {flex:1;padding:20px;overflow:auto;}
 .card {background:#fff;padding:20px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.1);}
@@ -30,9 +30,9 @@ input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radiu
 
 <div class="container">
   <div class="sidebar">
-    <a id="productsBtn">Products</a>
-    <a id="reportsBtn">Reports</a>
-    <a id="logoutBtn">Logout</a>
+    <a onclick="showInventory()">Products</a>
+    <a onclick="showReports()">Reports</a>
+    <a onclick="logout()">Logout</a>
   </div>
   <div class="main" id="content"></div>
 </div>
@@ -45,28 +45,22 @@ input {width:100%;padding:8px;margin:6px 0;border:1px solid #d1d5db;border-radiu
     <input id="model" placeholder="Model">
     <input id="cost" type="number" placeholder="Cost">
     <input id="qty" type="number" placeholder="Quantity">
-    <button id="createBtn">Create</button>
-    <button class="secondary" id="cancelBtn">Cancel</button>
+    <button onclick="addItem()">Create</button>
+    <button class="secondary" onclick="closeModal()">Cancel</button>
   </div>
 </div>
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
+// Supabase setup
 const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'
-const supabaseKey = 'YOUR_ANON_PUBLIC_KEY'  // Replace with your anon key
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4bWFvZ2FzeHRtcGpnaGV2dXh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxODY0MjksImV4cCI6MjA4Mzc2MjQyOX0.OIpey7XNk_8S_mDK8Doz3GAHeN2t2y1jiomjcwgE0BE' // Replace with your anon key
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+// Auth session check
 let session = null
 let currentUser = null
-let inventory = []
-let audit = []
-let currentAssetIndex = null
-
-const content = document.getElementById('content')
-const modal = document.getElementById('modal')
-
-// ===== AUTH CHECK =====
 async function checkAuth() {
   const { data } = await supabase.auth.getSession()
   session = data.session
@@ -75,24 +69,37 @@ async function checkAuth() {
 }
 await checkAuth()
 
-// ===== LOAD DATA =====
+// Data
+let inventory = []
+let audit = []
+let currentAssetIndex = null
+
+// Load inventory and audit from Supabase
 async function loadData() {
   const { data: invData, error: invError } = await supabase.from('inventory').select('*')
-  const { data: auditData, error: auditError } = await supabase.from('audit_logs').select('*')
+  const { data: auditData } = await supabase.from('audit_logs').select('*')
   if (invError) console.error(invError)
-  if (auditError) console.error(auditError)
   inventory = invData || []
   audit = auditData || []
 }
 await loadData()
 
-// ===== LOGGING FUNCTION =====
-async function log(action, item) {
-  audit.push({ time: new Date().toISOString(), action, item, user: currentUser.email })
-  await supabase.from('audit_logs').insert([{ action, item, user: currentUser.email }])
+// Logging function
+function log(action, item) {
+  audit.push({
+    time: new Date().toISOString(),
+    action,
+    item,
+    user: currentUser.email
+  })
+  supabase.from('audit_logs').insert([{
+    action,
+    item,
+    user: currentUser.email
+  }])
 }
 
-// ===== SHOW INVENTORY =====
+// Show inventory dashboard
 function showInventory() {
   content.innerHTML = `
     <div class="card">
@@ -107,16 +114,17 @@ function showInventory() {
             <td>${i.qty}</td>
             <td>$${i.cost}</td>
             <td>$${(i.qty*i.cost).toFixed(2)}</td>
-          </tr>`).join('')}
+          </tr>`).join("")}
       </table>
     </div>
   `
 }
 
-// ===== OPEN RECORD =====
+// Open single asset record
 function openRecord(index) {
   currentAssetIndex = index
   const p = inventory[index]
+
   content.innerHTML = `
     <div class="card">
       <h2>${p.name} (Asset Record)</h2>
@@ -126,7 +134,9 @@ function openRecord(index) {
       <p><b>Total Value:</b> $${(p.qty*p.cost).toFixed(2)}</p>
 
       <h3>Audit History</h3>
-      ${audit.filter(a=>a.item===p.name).map(a=>`<div>${a.time} — ${a.action} — ${a.user}</div>`).join('')}
+      ${audit.filter(a=>a.item===p.name).map(a=>`
+        <div>${a.time} — ${a.action} — ${a.user}</div>
+      `).join("")}
 
       <br>
       <button onclick="showInventory()">Back</button>
@@ -135,7 +145,7 @@ function openRecord(index) {
   `
 }
 
-// ===== DELETE ASSET =====
+// Delete asset
 async function deleteCurrentAsset() {
   if (currentAssetIndex === null) return
   const asset = inventory[currentAssetIndex]
@@ -148,51 +158,45 @@ async function deleteCurrentAsset() {
   showInventory()
 }
 
-// ===== SHOW REPORTS =====
+// Show reports & audit
 function showReports() {
   content.innerHTML = `
     <div class="card">
       <h2>Reports & Audit</h2>
       <p><b>Total Inventory Value:</b> $${inventory.reduce((s,i)=>s+i.qty*i.cost,0).toFixed(2)}</p>
-      ${audit.map(a=>`<div>${a.time} — ${a.action} — ${a.user}</div>`).join('')}
+      ${audit.map(a=>`<div>${a.time} — ${a.action} — ${a.user}</div>`).join("")}
     </div>
   `
 }
 
-// ===== MODAL FUNCTIONS =====
-function openModal() { modal.style.display = 'flex' }
-function closeModal() { modal.style.display = 'none' }
+// Modal open/close
+function openModal() { modal.style.display = "flex" }
+function closeModal() { modal.style.display = "none" }
 
-// ===== ADD ITEM =====
+// Add new item
 async function addItem() {
   const newItem = {
-    name: document.getElementById('name').value,
-    model: document.getElementById('model').value,
-    cost: +document.getElementById('cost').value,
-    qty: +document.getElementById('qty').value
+    name: name.value,
+    model: model.value,
+    cost: +cost.value,
+    qty: +qty.value
   }
   const { data, error } = await supabase.from('inventory').insert([newItem]).select()
   if (error) return alert(error.message)
+
   inventory.push(data[0])
   log('CREATE ITEM', newItem.name)
   closeModal()
   showInventory()
 }
 
-// ===== LOGOUT =====
+// Logout
 async function logout() {
   await supabase.auth.signOut()
-  window.location.href = 'login.html'
+  window.location.href = 'login.html' // redirect to login page
 }
 
-// ===== EVENT LISTENERS =====
-document.getElementById('productsBtn').addEventListener('click', showInventory)
-document.getElementById('reportsBtn').addEventListener('click', showReports)
-document.getElementById('logoutBtn').addEventListener('click', logout)
-document.getElementById('createBtn').addEventListener('click', addItem)
-document.getElementById('cancelBtn').addEventListener('click', closeModal)
-
-// ===== INITIALIZE =====
+// Initialize dashboard
 showInventory()
 </script>
 
