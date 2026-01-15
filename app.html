@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>App Login</title>
+<style>
+body {margin:0;font-family:"Segoe UI",Roboto;background:#f5f6f7;display:flex;justify-content:center;align-items:center;height:100vh;}
+.container {background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.15);width:300px;text-align:center;}
+input {width:100%;padding:10px;margin:10px 0;border:1px solid #d1d5db;border-radius:4px;}
+button {width:100%;padding:10px;background:#0b5cab;color:#fff;border:none;border-radius:4px;cursor:pointer;}
+button.secondary {background:#6b7280;}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>App Login</h2>
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <button id="loginBtn">Login</button>
+  <button id="logoutBtn" class="secondary">Logout</button>
+  <p id="message"></p>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+const supabaseUrl = 'https://xxmaogasxtmpjghevuxy.supabase.co'
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4bWFvZ2FzeHRtcGpnaGV2dXh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxODY0MjksImV4cCI6MjA4Mzc2MjQyOX0.OIpey7XNk_8S_mDK8Doz3GAHeN2t2y1jiomjcwgE0BE' // Replace with your Supabase anon key
+const supabase = createClient(supabaseUrl, supabaseKey)
+
+const emailInput = document.getElementById('email')
+const passwordInput = document.getElementById('password')
+const loginBtn = document.getElementById('loginBtn')
+const logoutBtn = document.getElementById('logoutBtn')
+const message = document.getElementById('message')
+
+// LOGIN FUNCTION
+loginBtn.onclick = async () => {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: emailInput.value,
+    password: passwordInput.value
+  })
+  if (error) {
+    message.textContent = error.message
+    message.style.color = 'red'
+  } else {
+    message.textContent = 'Logged in successfully!'
+    message.style.color = 'green'
+    setTimeout(() => { window.location.href = 'index.html' }, 1000)
+  }
+}
+
+// LOGOUT FUNCTION
+logoutBtn.onclick = async () => {
+  await supabase.auth.signOut()
+  message.textContent = 'Logged out successfully!'
+  message.style.color = 'green'
+}
+</script>
+
+</body>
+</html>
